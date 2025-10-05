@@ -1,0 +1,20 @@
+# Server configuration
+server:
+  port: 8080
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 60s
+
+# Logging configuration
+logging:
+  level: info  # debug, info, warn, error, dpanic, panic, fatal
+
+# Database configuration
+database:
+  type: memory  # Options: memory, postgres
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: transaction_routine
+  sslmode: disable
