@@ -1,70 +1,135 @@
 # Transaction Routine API
 
-A  Go-based microservice for managing customer accounts and financial transactions.
+A High-performance Go microservice for managing customer accounts and financial transactions, built with Clean Architecture and production-grade observability.
 
-## Core Features
+##  Architecture
 
-- **Account Management**: Create and retrieve customer profiles via document numbers.
-- **Transaction Processing**: Register financial operations (Purchases, Withdrawals, Credits) with automatic normalization based on business rules.
-- **Clean Architecture**: Strict separation of concerns between Domain, Service, Repository, and API layers.
-- **Production-Grade Observability**: Structured JSON logging using Uber-Zap.
-- **Resilient Infrastructure**: PostgreSQL with healthchecks and automated initialization.
-- **Comprehensive Testing**: 90%+ coverage across unit and integration tests (using Testcontainers).
+The project follows **Clean Architecture** principles to ensure separation of concerns and maintainability.
 
-## Tech Stack
+```mermaid
+graph TD
+    API[API Layer /internal/api] --> Service[Service Layer /internal/service]
+    Service --> Domain[Domain Layer /internal/domain]
+    Service --> Repo[Repository Layer /internal/repository]
+    Repo --> DB[(PostgreSQL)]
+```
 
-- **Go 1.24**: Leveraging latest language features.
-- **Gin**: High-performance HTTP web framework.
-- **PostgreSQL**: Stable and reliable relational data storage.
-- **Docker**: Containerized deployment for consistent environments.
+### Layer Responsibilities
+- **Domain**: Pure business logic and entities. No dependencies on other layers.
+- **Service**: Orchestrates business rules. Defines interfaces for repositories.
+- **Repository**: Handles data persistence and database-specific logic.
+- **API**: HTTP handlers, routing, and request/response transformation.
 
-## Getting Started
+---
 
-### 1. Quick Start with Docker
+##  Core Features
+
+- **Account Management**: Seamlessly create and retrieve customer profiles.
+- **Transaction Processing**: Automatic normalization of transaction amounts based on operation types:
+    - `1 (Normal Purchase)`: Negative
+    - `2 (Purchase with Installments)`: Negative
+    - `3 (Withdrawal)`: Negative
+    - `4 (Credit Voucher)`: Positive
+- **Observability**: Structured JSON logging using `uber-go/zap` for easy log aggregation.
+- **Resilience**: Graceful shutdown and healthchecks for reliable service availability.
+- **Testing Excellence**: Integrated testing with `testcontainers` for real DB validation.
+
+---
+
+##  Configuration
+
+The application can be configured using environment variables.
+
+| Variable      | Description                    | Default            |
+| ------------- | ------------------------------ | ------------------ |
+| `APP_PORT`    | Port the API server listens on | `8080`             |
+| `DB_HOST`     | Database host                  | `localhost` / `db` |
+| `DB_PORT`     | Database port                  | `5432`             |
+| `DB_USER`     | Database username              | `postgres`         |
+| `DB_PASSWORD` | Database password              | `postgres`         |
+| `DB_NAME`     | Database name                  | `transaction_db`   |
+
+---
+
+##  Getting Started
+
+### Prerequisites
+- Go 1.24+
+- Docker & Docker Compose (for infrastructure and tests)
+
+### Quick Start (Docker)
 ```bash
 make docker-up
 ```
-This will start the API at `http://localhost:8080` and a PostgreSQL database.
+The API becomes available at `http://localhost:8080`.
 
-### 2. Manual Execution
-Ensure you have Go 1.24 installed:
-```bash
-make run
-```
+### Manual Development
+1. Start the DB: `docker-compose up db`
+2. Run the API: `make run`
 
-## Testing
+---
 
-Run the full test suite (requires Docker for integration tests):
-```bash
-make test
-```
+##  API Specification
 
-## API Documentation
+### Accounts
 
-### Create Account
+#### Create Account
 `POST /accounts`
-```json
-{ "document_number": "12345678900" }
-```
+- **Request Body**:
+  ```json
+  { "document_number": "12345678900" }
+  ```
+- **Responses**:
+    - `201 Created`: Returns the created account object.
+    - `400 Bad Request`: Invalid document number or missing body.
 
-### Get Account
-`GET /accounts/:id`
+#### Get Account
+`GET /accounts/:accountId`
+- **Responses**:
+    - `200 OK`: Returns the account object.
+    - `404 Not Found`: Account does not exist.
 
-### Create Transaction
+### Transactions
+
+#### Register Transaction
 `POST /transactions`
-```json
-{
-  "account_id": 1,
-  "operation_type_id": 1,
-  "amount": 100.50
-}
-```
-*Note: Operation types 1, 2, and 3 result in negative amounts; type 4 results in positive.*
+- **Request Body**:
+  ```json
+  {
+    "account_id": 1,
+    "operation_type_id": 4,
+    "amount": 150.00
+  }
+  ```
+- **Responses**:
+    - `201 Created`: Transaction processed successfully.
+    - `400 Bad Request`: Invalid business logic (e.g., unknown operation type).
+    - `404 Not Found`: Account not found.
 
-## Project Structure
-- `cmd/api`: Entry point and dependency wiring.
-- `internal/api`: HTTP handlers and request/response models.
-- `internal/service`: Core business logic (Service interfaces and private implementations).
-- `internal/repository`: Persistence logic using the Repository pattern.
-- `internal/domain`: Pure business entities and domain rules.
-- `pkg/errors`: Centralized error management with idiomatic wrapping.
+---
+
+##  Testing & Performance
+
+### Running Tests
+We use standard Go testing patterns along with Testcontainers for integration tests.
+```bash
+# Run all tests
+make test
+
+# With coverage report
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
+```
+
+
+---
+
+##  Project Structure
+
+- `cmd/api`: Application entry point and DI wiring.
+- `internal/api`: HTTP handler implementations.
+- `internal/service`: Business logic core.
+- `internal/repository`: PostgreSQL persistence.
+- `internal/domain`: Domain entities and core rules.
+- `pkg/errors`: Custom error types and wrapping utilities.
+- `scripts`: Database initialization SQL.
